@@ -56,7 +56,7 @@ A few suggestions / recommendations:
         - take the last known version of the site,
         - increment the version of the site by `0.1.x` (e.g. move from `0.1.5` to `0.2.0`) 
         - compile the site
-        - commit, tag and pus to github
+        - commit, tag and push to github
 
 ### Operation
 
@@ -84,13 +84,13 @@ A few suggestions / recommendations:
     - Compile and build the code (jekyll or hugo)
     - Deploy the dev / staging environments accordingly.
 
-- Prepare automated task to run the created script mentioned in development part.
+- Prepare automated tasks to run the created script mentioned in development part.
     - Generate new page and push to github every 10 minutes. (run the script for `dev`)
     - tag and push to github every 1 hour. (run the script for `staging`)
 
-- Prepare automated task to auto update the served sites every 5 minutes following roles:
-    - if there is new commit, then update the dev server
-    - if there is new tag, then update the staging server
+- Prepare automated tasks to auto update the served sites every 5 minutes following roles:
+    - if there is a new commit, then update the dev server
+    - if there is a new tag, then update the staging server
 
 - Optional
     - Map a custom domain name on the server, install a Letsencrypt SSL/TLS certificate
