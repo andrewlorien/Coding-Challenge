@@ -1,0 +1,46 @@
+# DevOps challenge thoughts:
+
+
+
+## Folder structure
+Using a single git repo because i'm only working on this for a couple of days
+Using a monolithic ansible playbook because I'm only doing this once
+
+DevOpsChallenge
+- server
+-- playbook
+
+--- etc
+- site
+-- fetch
+-- update
+--- dev 
+--- staging
+
+## Architecture
+### AWS 
+ap-southeast-2
+t2.micro  (t3 is out now, but not in the free tier)
+Ubuntu 16.04
+ami-0be0161e4ddec9e56 
+
+### server 
+"ansible hugo" has more google hits than "ansible jekyll". Using hugo
+
+use EC2 systems manager? https://aws.amazon.com/blogs/mt/running-ansible-playbooks-using-ec2-systems-manager-run-command-and-state-manager/
+ 
+on bootstrap:
+- install ansible : sudo apt-get install ansible -y
+- install and configure hugo (some guys example)
+    git clone https://github.com/jtreminio/hugoBasicExample.git
+    cd hugoBasicExample
+    git clone https://github.com/nanxiaobei/hugo-paper.git \
+    themes/hugo-paper
+- configure nginx
+
+## time tracking
+- docs
+- architecture
+- research
+- code
+ 
