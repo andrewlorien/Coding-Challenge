@@ -1,0 +1,135 @@
+# IsentiaChallenge_ec2.yml
+
+# On my local machine I'm using python 3.5 with boto 2.49.0 / botocore 1.4.70.  But boto keeps failing with 
+#    fatal: [localhost]: FAILED! => {"changed": false, "failed": true, "invocation": {"module_name": "ec2_key"}, "module_stderr": "  File \"/home/radagast/.ansible/tmp/ansible-tmp-1538353060.27-179003914891970/ec2_key\", line 153\n    except Exception, e:\n                    ^\nSyntaxError: invalid syntax\n", "module_stdout": "", "msg": "MODULE FAILURE", "parsed": false}
+# so, on a fresh ubuntu AWS instance, 
+# aws ec2 run-instances --image-id ami-0789a5fb42dcccc10 --count 1 --instance-type t3.micro --key-name dev_staging --associate-public-ip-address --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=ansible_ubuntu}]' --region=ap-southeast-2
+# I tried
+# sudo apt-get update && sudo apt-get install software-properties-common && sudo apt-add-repository ppa:ansible/ansible && sudo apt-get update && sudo apt-get install ansible && sudo dpkg-reconfigure locales 
+# locales was interactive... then
+# sudo apt-get install python-pip && pip install boto3 && pip install --upgrade pip && pip3 install --user boto boto3
+# then set up AWS 
+# sudo apt install awscli && aws configure # then rename the profile in ~/.aws/credentials from default to radagast
+
+# and then I copied this file to my home folder on that machine and ran
+# ansible-playbook IsentiaChallenge_ec2-.yml --key-file "~/.aws/dev_staging.pem"
+
+
+
+
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars:
+    ansible_host_key_checking: False  
+    ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+#    ansible_python_interpreter: /usr/bin/python3  # wait_for_connection attempts /usr/bin/python, but apt-get installs python3
+    ansible_ssh_private_key_file: ~/.aws/dev_staging.pem
+
+    # It would be better to get most of these by describing the account then selecting the appropriate one
+    ami_id: ami-0789a5fb42dcccc10   # ubuntu 16.04 LTS hvm:ebs-ssd  (t3 requires ebs root device)
+    security_group_name: dev_staging_sg
+    vpc_id: vpc-35a0f552
+    subnet_id: subnet-a3ebd6c4   # surprise!  t3.micro is only available in 2a and 2c, not 2b.  without this we fail 1/3 of the time
+    region_name: ap-southeast-2
+    instance_type: t2.micro # t3.micro isn't in the free tier
+    local_aws_profile: radagast
+
+  tasks:
+
+    - name: create a Key Pair 
+      ec2_key:
+        profile: radagast
+        name: "dev_staging"
+        region: "{{ region_name }}"
+        state: present
+      register: dev_staging_ec2_key
+
+    - name: Save private key
+      copy: content="{{ dev_staging_ec2_key.key.private_key }}" dest="./aws/dev_staging.pem" mode=0600
+      when: dev_staging_ec2_key.changed      
+
+    - name: ec2 security group for Ansible / Hugin servers
+      ec2_group:
+        profile: radagast
+        name: "{{ security_group_name }}"
+        region: "{{ region_name }}"
+        description: SG for Ansible and Hugin
+        vpc_id: "{{ vpc_id }}"
+        rules:
+        - proto: tcp
+          ports: 80
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          ports: 22
+          cidr_ip: 60.242.164.83/32
+          rule_desc: just andrew for the moment
+        - proto: tcp
+          ports: 22
+          cidr_ip: 172.31.0.0/16
+          rule_desc: all of this VPC 
+        # TODO: gather facts uses the public IP.  Either work out how to make it use private IP or DNS; or allocate elastic IPs which we can know and control.  Until then, ssh has to be open to the world
+        - proto: tcp
+          ports: 22
+          cidr_ip: 0.0.0.0/0
+          rule_desc: allow ssh from everywhere
+          
+  
+    - name: Provision an instance
+      ec2:         
+         profile: "{{ local_aws_profile }}"
+#         key_name: "{{ dev_staging_ec2_key }"
+         vpc_subnet_id: "{{ subnet_id }}"
+         key_name: dev_staging
+         region: "{{ region_name }}"
+         group: "{{ security_group_name }}"
+         instance_type: "{{ instance_type }}"
+         image: "{{ ami_id }}"
+         wait: true
+         count: 1
+         assign_public_ip: yes
+         instance_tags:
+            Name: dev_staging         
+         user_data: |
+               #!/bin/sh
+               # wait_for_connection fails if you haven't fixed the locale
+               sudo locale-gen en_AU.UTF-8
+               sudo apt-get update
+               # gather_facts fails if python isn't installed on the target
+               sudo apt-get install python -y
+               # totally hacky way to get the ansible ping module to correctly find python
+               sudo ln -s /usr/bin/python3 /usr/bin/python
+               sudo apt-get install nginx -y
+      register: ec2
+    
+    - name: Add all instance public IPs to host group
+      add_host: hostname={{ item.public_ip }} groups=ec2hosts
+      loop: "{{ ec2.instances }}"
+     
+# 
+    - name: Wait for SSH to come up
+      delegate_to: "{{ item.public_dns_name }}"
+      wait_for_connection:
+        delay: 60
+        sleep: 10
+        timeout: 600  # ten minutes because we're installing python
+      with_items: "{{ ec2.instances }}"
+      
+- hosts: ec2hosts
+  name: configuration play
+  user: ec2-user
+  gather_facts: true
+  vars:
+    ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+
+  tasks:
+      
+     - name: Check nginx service
+       service: name=nginx state=started
+
+     - name: Check hugo service
+       service: name=hugo state=started
+
+     
+# tear down : 
+# remove instance, remove keypair, 
