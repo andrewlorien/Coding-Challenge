@@ -11,6 +11,13 @@
 # then set up AWS 
 # sudo apt install awscli && aws configure # then rename the profile in ~/.aws/credentials from default to radagast
 
+# to set up Hugo
+# curl -L https://github.com/gohugoio/hugo/releases/download/v0.49/hugo_0.49_Linux-64bit.deb -o hugo_0.49_Linux-64bit.deb
+# sudo dpkg -i hugo_0.49_Linux-64bit.deb
+# hugo new site IsentiaChallenge
+# cd /home/ubuntu/IsentiaChallenge && git init && git submodule add https://github.com/cboettig/hugo-now-ui.git themes/now-ui && echo 'theme = "now-ui"' >> config.toml 
+
+
 # and then I copied this file to my home folder on that machine and ran
 # ansible-playbook IsentiaChallenge_ec2-.yml --key-file "~/.aws/dev_staging.pem"
 
@@ -21,13 +28,15 @@
   connection: local
   gather_facts: False
   vars:
+    # ansible system variables
     ansible_host_key_checking: False  
     ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 #    ansible_python_interpreter: /usr/bin/python3  # wait_for_connection attempts /usr/bin/python, but apt-get installs python3
     ansible_ssh_private_key_file: ~/.aws/dev_staging.pem
     hugo_version: https://github.com/gohugoio/hugo/releases/download/v0.49/hugo_0.49_Linux-64bit.deb
 
-    # It would be better to get most of these by describing the account then selecting the appropriate one
+    # AWS variables
+    # (It would be better to get most of these by describing the account)
     ami_id: ami-0789a5fb42dcccc10   # ubuntu 16.04 LTS hvm:ebs-ssd  (t3 requires ebs root device)
     security_group_name: dev_staging_sg
     vpc_id: vpc-35a0f552
