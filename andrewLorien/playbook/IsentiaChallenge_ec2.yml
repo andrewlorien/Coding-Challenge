@@ -25,6 +25,7 @@
     ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
 #    ansible_python_interpreter: /usr/bin/python3  # wait_for_connection attempts /usr/bin/python, but apt-get installs python3
     ansible_ssh_private_key_file: ~/.aws/dev_staging.pem
+    hugo_version: https://github.com/gohugoio/hugo/releases/download/v0.49/hugo_0.49_Linux-64bit.deb
 
     # It would be better to get most of these by describing the account then selecting the appropriate one
     ami_id: ami-0789a5fb42dcccc10   # ubuntu 16.04 LTS hvm:ebs-ssd  (t3 requires ebs root device)
@@ -36,7 +37,13 @@
     local_aws_profile: radagast
 
   tasks:
+ 
+    - name: Install hugo
+      apt: 
+        deb: "{{ hugo_version }}"
+      become: yes
 
+       
     - name: create a Key Pair 
       ec2_key:
         profile: radagast
@@ -127,8 +134,6 @@
      - name: Check nginx service
        service: name=nginx state=started
 
-     - name: Check hugo service
-       service: name=hugo state=started
 
      
 # tear down : 

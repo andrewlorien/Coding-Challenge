@@ -7,9 +7,8 @@ Using a single git repo because i'm only working on this for a couple of days
 Using a monolithic ansible playbook because I'm only doing this once
 
 DevOpsChallenge
-- server
--- playbook
---- etc
+- playbook
+-- etc
 
 - site
 -- fetch
@@ -36,6 +35,10 @@ on bootstrap:
     git clone https://github.com/nanxiaobei/hugo-paper.git \
     themes/hugo-paper
 - configure nginx
+
+### hugo
+- create repo with base site manually
+- script dev/staging steps
 
 
 ## time tracking
