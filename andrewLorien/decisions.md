@@ -22,8 +22,9 @@ ap-southeast-2
 t2.micro  (t3 is out now, but not in the free tier)
 Ubuntu 16.04
 ami-0be0161e4ddec9e56 
+ELB -> web servers
 
-### server 
+### Ansible server 
 "ansible hugo" has more google hits than "ansible jekyll". Using hugo
 
 use EC2 systems manager to install packages and run playbooks? https://aws.amazon.com/blogs/mt/running-ansible-playbooks-using-ec2-systems-manager-run-command-and-state-manager/
@@ -34,11 +35,17 @@ on bootstrap:
     cd hugoBasicExample
     git clone https://github.com/nanxiaobei/hugo-paper.git \
     themes/hugo-paper
-- configure nginx
+- schedule using crontab on the ansible server?
 
 ### hugo
 - create repo with base site manually
 - script dev/staging steps
+
+### web server
+- configure nginx
+- respond to DNS
+- set up TLS
+- caching?
 
 
 ## time tracking
