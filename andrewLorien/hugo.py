@@ -1,14 +1,16 @@
 #!/usr/bin/python3
 # using python 3.5.2
 
-from shutil import rmtree
+from shutil import rmtree, copytree
 from datetime import datetime, timezone
 import re
 import argparse
 import subprocess
+import os
 
 hugoSitePath = "/home/ubuntu/hugo_IsentiaChallenge/"
 hugoSitePath = "/home/radagast/miscWorks/IsentiaSep2018/Coding-Challenge/andrewLorien/IsentiaChallenge/"
+# hugoSitePath = os.path.join(os.path.dirname(__file__),"IsentiaChallenge/")
 
 
 parser = argparse.ArgumentParser(prog='hugo.py')
@@ -19,18 +21,20 @@ args = parser.parse_args()
 ### DEV
 def update_dev():
 
-    # delete public/*
+    # delete compiled sites
     rmtree(hugoSitePath + "public/", True)
+    rmtree(hugoSitePath + "dev/", True)
+    rmtree(hugoSitePath + "staging/", True)
 
     # edit content/fortune.md
     ## bug : python's %z returns a string like "0000", but hugo's timestamp wants "00:00"
     pageTime = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S%z")
-    newPage = open(hugoSitePath + "content/fortune" + pageTime + ".md", "w")
+    newPage = open("{}content/fortune{}.md".format(hugoSitePath,pageTime), "w")
     ## add header (date etc)
     # date: 2018-10-03T13:44:41+10:00
     newPage.write("+++\n")
-    newPage.write("title = \"Your fortune at " + pageTime + "\"\n")
-    newPage.write("date = \"" + pageTime + "\"\n")
+    newPage.write("title = \"Your fortune at {}\"\n".format(pageTime))
+    newPage.write("date = \"{}\"\n".format(pageTime))
     newPage.write("+++\n")
 
     ## add fortune text  (use markdown "two spaces at the end of a line makes a line break" formatting)
@@ -57,23 +61,35 @@ def update_footer(environment):
                 break
     
             
-    with open(hugoSitePath + "layouts/partials/footer.html", 'r') as footerFile :
+    with open("{}layouts/partials/footer.html".format(hugoSitePath), 'r') as footerFile :
         filedata = footerFile.read()
 
     # Replace the target string
     filedata = filedata.replace(oldVersion, newVersion + "\n")
 
     # Write the file out again
-    with open(hugoSitePath + "layouts/partials/footer.html", 'w') as footerFile:
+    with open("{}layouts/partials/footer.html".format(hugoSitePath), 'w') as footerFile:
         footerFile.write(filedata)    
+        
+    return newVersion
 
  
 
-def build(environment):
+def build(environment,newVersion):
     # build
     subprocess.run("hugo")
-    # push to dev
-    
+    # copy to dev/staging
+    copytree("{}public".format(hugoSitePath), "{}{}".format(hugoSitePath,environment))
+    # add to git repo for deployment to remote server
+    # TODO : check for git errors
+    print(hugoSitePath)
+#    subprocess.run("git --git-dir /home/radagast/miscWorks/IsentiaSep2018/Coding-Challenge/.git status")
+    subprocess.run(["git","-C",hugoSitePath,"add","content"])
+    subprocess.run(["git","-C",hugoSitePath,"add",environment])
+    subprocess.run(["git","-C",hugoSitePath,"commit","-m","\"hugo.py checking in version {}".format(newVersion)])
+    # this is cheap, but in a real-world situation we'd have separate repos
+    subprocess.run(["git","-C","{}../../".format(hugoSitePath),"push"])
+   
     
 def increment(v):
     return str((int(v)+1))
@@ -82,5 +98,5 @@ def increment(v):
 if args.environment == "dev":
     update_dev()
     
-update_footer(args.environment)
-build(args.environment)
+newVersion = update_footer(args.environment)
+build(args.environment,newVersion)
