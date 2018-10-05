@@ -1,7 +1,7 @@
 # This playbook requires the ec2.py script, 
 #    and an AWS profile and EC2 key on the local machine 
-# Run it like this (from the folder containing the "playbook/" folder)
-# AWS_PROFILE=radagast ansible-playbook -i playbook/ec2.py playbook/nginx.yml --key-file ~/.aws/dev_staging.pem
+# Run it like this 
+# AWS_PROFILE=radagast ansible-playbook -i ec2.py nginx.yml --key-file ~/.aws/dev_staging.pem
 
 
 - hosts: ec2
@@ -13,10 +13,11 @@
 
   tasks:
 
-    - name: check whether dev files have been created
-      stat:
-        path: IsentiaChallenge/dev/
-      register: dev_result
+#    this doesn't work, even with full path.  ignoring errors instead, but that should be fixed
+#    - name: check whether dev files have been created
+#      stat:
+#        path: IsentiaChallenge/dev/
+#      register: dev_result
 
     - name: copy dev files if they exist
       copy:
@@ -25,13 +26,7 @@
         owner: root
         group: root
       become: yes
-      when: dev_result.stat.exists == True
-
-
-    - name: check whether staging files have been created
-      stat:
-        path: IsentiaChallenge/staging/
-      register: staging_result
+      ignore_errors: yes
 
     - name: copy staging files
       copy:
@@ -40,4 +35,4 @@
         owner: root
         group: root
       become: yes
-      when: staging_result.stat.exists == True
+      ignore_errors: yes

@@ -1,5 +1,8 @@
 # IsentiaChallenge_ec2.yml
 
+# This playbook requires an AWS profile on the local machine and an EC2 key
+# ansible-playbook IsentiaChallenge_ec2-.yml --key-file "~/.aws/dev_staging.pem"
+
 # On my local machine I'm using python 3.5 with boto 2.49.0 / botocore 1.4.70.  But boto keeps failing with 
 #    fatal: [localhost]: FAILED! => {"changed": false, "failed": true, "invocation": {"module_name": "ec2_key"}, "module_stderr": "  File \"/home/radagast/.ansible/tmp/ansible-tmp-1538353060.27-179003914891970/ec2_key\", line 153\n    except Exception, e:\n                    ^\nSyntaxError: invalid syntax\n", "module_stdout": "", "msg": "MODULE FAILURE", "parsed": false}
 # so, on a fresh ubuntu AWS instance, 
@@ -16,10 +19,6 @@
 # sudo dpkg -i hugo_0.49_Linux-64bit.deb
 # hugo new site IsentiaChallenge
 # cd /home/ubuntu/IsentiaChallenge && git init && git submodule add https://github.com/cboettig/hugo-now-ui.git themes/now-ui && echo 'theme = "now-ui"' >> config.toml 
-
-
-# and then I copied this file to my home folder on that machine and ran
-# ansible-playbook IsentiaChallenge_ec2-.yml --key-file "~/.aws/dev_staging.pem"
 
 
 
@@ -79,8 +78,12 @@
         description: SG for Ansible and Hugin
         vpc_id: "{{ vpc_id }}"
         rules:
+	# SECURITY: we should have separate sg for elb and ec2, with elb allowing port 80 only and ec2 only available within the VPC
         - proto: tcp
           ports: 80
+          cidr_ip: 0.0.0.0/0
+        - proto: tcp
+          ports: 81
           cidr_ip: 0.0.0.0/0
         - proto: tcp
           ports: 22
@@ -146,7 +149,7 @@
         - "{{ subnet_id2 }}"
         listeners:
         - Protocol: HTTP 
-          Port: 81
+          Port: 80
           DefaultActions:
           - Type: forward # Required. Only 'forward' is accepted at this time
             TargetGroupName: "dev-{{ target_group }}"
@@ -165,6 +168,7 @@
          image: "{{ ami_id }}"
          wait: true
          count: 1
+	 # SECURITY: public IP only for debugging
          assign_public_ip: yes
          instance_tags:
             Name: dev_staging         

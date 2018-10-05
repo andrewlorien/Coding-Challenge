@@ -1,6 +1,9 @@
 #!/usr/bin/python3
 # using python 3.5.2
 
+# run me like this
+# /usr/bin/python3 hugo.py {dev|staging}
+
 from shutil import rmtree, copytree
 from datetime import datetime, timezone
 import re
@@ -20,9 +23,6 @@ def update_dev():
 
     print("adding new fortune to dev")
     # delete compiled sites
-    rmtree(hugoSitePath + "public/*", True)
-    rmtree(hugoSitePath + "dev/", True)
-    rmtree(hugoSitePath + "staging/", True)
 
     # edit content/fortune.md
     ## bug : python's %z returns a string like "0000", but hugo's timestamp wants "00:00"
@@ -85,7 +85,6 @@ def build(environment,newVersion):
     # add to git repo for deployment to remote server
     # TODO : check for git errors
     print(hugoSitePath)
-#    subprocess.run("git --git-dir /home/radagast/miscWorks/IsentiaSep2018/Coding-Challenge/.git status")
     subprocess.run(["git","-C",hugoSitePath,"add","content"])
     subprocess.run(["git","-C",hugoSitePath,"add",environment])
     subprocess.run(["git","-C",hugoSitePath,"commit","-m","\"hugo.py checking in version {}".format(newVersion)])
@@ -96,9 +95,15 @@ def build(environment,newVersion):
 def increment(v):
     return str((int(v)+1))
 
+#############  BEGIN ##################
+# Clean up
+rmtree(hugoSitePath + "public/*", True)
+rmtree(hugoSitePath + "dev/", True)
+rmtree(hugoSitePath + "staging/", True)
 
 if args.environment == "dev":
     update_dev()
     
 newVersion = update_footer(args.environment)
+
 build(args.environment,newVersion)
