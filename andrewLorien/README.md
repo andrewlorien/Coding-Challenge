@@ -19,3 +19,13 @@ Copies the dev or staging folder to the matching folder on the web server.
 Run it like this
 AWS_PROFILE=radagast ansible-playbook -i ec2.py nginx.yml --key-file ~/.aws/dev_staging.pem
 
+To fulfil the challenge, the IsentiaChallenge_ec2.yml creates a crontab on the ansible host which:
+every five minutes runs
+every ten minutes runs
+AWS_PROFILE=radagast ansible-playbook -i ec2.py nginx.yml --key-file ~/.aws/dev_staging.pem 
+python3 hugo.py dev 
+every hour runs
+python3 hugo.py staging 
+
+There is a race condition: the dev and staging builds are deleted before the hugo build.  The crontab gets around this by ensuing that the three jobs are out of sync, but it could be fixed by more robust file management.
+
