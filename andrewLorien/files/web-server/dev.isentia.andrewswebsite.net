@@ -14,8 +14,8 @@
 # Default server configuration
 #
 server {
-	listen 80;
-	listen [::]:80;
+	listen 81;
+	listen [::]:81;
 
 	# SSL configuration
 	#
@@ -33,12 +33,12 @@ server {
 	#
 	# include snippets/snakeoil.conf;
 
-	root /var/www/staging.isentia.andrewswebsite.net/html;
+	root /var/www/dev.isentia.andrewswebsite.net/html;
 
 	# Add index.php to the list if you are using PHP
 	index index.html index.htm index.nginx-debian.html;
 
-	server_name staging.isentia.andrewswebsite.net;
+        server_name dev.isentia.andrewswebsite.net ~^dev-isentiachallenge-elb.*;
 
 	location / {
 		# First attempt to serve request as file, then
