@@ -35,13 +35,15 @@
 
     # AWS variables
     # (It would be better to get most of these by describing the account)
+    local_aws_profile: radagast
+    vpc_id: vpc-35a0f552
     ami_id: ami-0789a5fb42dcccc10   # ubuntu 16.04 LTS hvm:ebs-ssd  (t3 requires ebs root device)
     security_group_name: dev_staging_sg
-    vpc_id: vpc-35a0f552
-    subnet_id: subnet-a3ebd6c4   # surprise!  t3.micro is only available in 2a and 2c, not 2b.  without this we fail 1/3 of the time
+    subnet_id1: subnet-a3ebd6c4   # surprise!  t3.micro is only available in 2a and 2c, not 2b.  without this we fail 1/3 of the time
+    subnet_id2: subnet-f5e946ad
     region_name: ap-southeast-2
     instance_type: t2.micro # t3.micro isn't in the free tier
-    local_aws_profile: radagast
+    target_group: IsentiaChallenge-tg
 
   tasks:
  
@@ -59,7 +61,7 @@
        
     - name: create a Key Pair 
       ec2_key:
-        profile: radagast
+        profile: "{{ local_aws_profile }}"
         name: "dev_staging"
         region: "{{ region_name }}"
         state: present
@@ -71,7 +73,7 @@
 
     - name: ec2 security group for Ansible / Hugin servers
       ec2_group:
-        profile: radagast
+        profile: "{{ local_aws_profile }}"
         name: "{{ security_group_name }}"
         region: "{{ region_name }}"
         description: SG for Ansible and Hugin
@@ -93,13 +95,69 @@
           ports: 22
           cidr_ip: 0.0.0.0/0
           rule_desc: allow ssh from everywhere
-          
+
+
+    # Create a pair of target groups with a default health check
+    - elb_target_group:
+        profile: "{{ local_aws_profile }}"
+        name: "staging-{{ target_group }}"
+        region: "{{ region_name }}"
+        protocol: http
+        port: 80
+        vpc_id: "{{ vpc_id }}"
+        state: present
+
+    - elb_target_group:
+        profile: "{{ local_aws_profile }}"
+        name: "dev-{{ target_group }}"
+        region: "{{ region_name }}"
+        protocol: http
+        port: 81
+        vpc_id: "{{ vpc_id }}"
+        state: present
+
+
+    # Create a pair of ELBs for dev and staging
+    - elb_application_lb:
+        profile: "{{ local_aws_profile }}"
+        name: staging-IsentiaChallenge-elb
+        region: "{{ region_name }}"
+        security_groups:
+        - "{{ security_group_name }}"
+        subnets:
+        - "{{ subnet_id1 }}"
+        - "{{ subnet_id2 }}"
+        listeners:
+        - Protocol: HTTP 
+          Port: 80
+          DefaultActions:
+          - Type: forward # Required. Only 'forward' is accepted at this time
+            TargetGroupName: "staging-{{ target_group }}"
+        state: present          
+              
+    - elb_application_lb:
+        profile: "{{ local_aws_profile }}"
+        name: dev-IsentiaChallenge-elb
+        region: "{{ region_name }}"
+        security_groups:
+        - "{{ security_group_name }}"
+        subnets:
+        - "{{ subnet_id1 }}"
+        - "{{ subnet_id2 }}"
+        listeners:
+        - Protocol: HTTP 
+          Port: 81
+          DefaultActions:
+          - Type: forward # Required. Only 'forward' is accepted at this time
+            TargetGroupName: "dev-{{ target_group }}"
+        state: present          
+              
   
     - name: Provision an instance
       ec2:         
          profile: "{{ local_aws_profile }}"
 #         key_name: "{{ dev_staging_ec2_key }"
-         vpc_subnet_id: "{{ subnet_id }}"
+         vpc_subnet_id: "{{ subnet_id1 }}"
          key_name: dev_staging
          region: "{{ region_name }}"
          group: "{{ security_group_name }}"
@@ -128,11 +186,30 @@
      
 # 
     - name: Wait for SSH to come up
-      delegate_to: "{{ item.public_dns_name }}"
+      delegate_to: "{{ item.private_dns_name }}"
       wait_for_connection:
         delay: 60
         sleep: 20
         timeout: 600  # ten minutes because we're installing python
+      with_items: "{{ ec2.instances }}"
+
+
+    # add instance to target group / elb
+    - elb_target:
+        profile: "{{ local_aws_profile }}"
+        region: "{{ region_name }}"
+        target_group_name: "dev-{{ target_group }}"
+        target_id: "{{ item.id }}"
+        state: present
+      with_items: "{{ ec2.instances }}"
+      
+    # add instance to target group / elb
+    - elb_target:
+        profile: "{{ local_aws_profile }}"
+        region: "{{ region_name }}"
+        target_group_name: "staging-{{ target_group }}"
+        target_id: "{{ item.id }}"
+        state: present
       with_items: "{{ ec2.instances }}"
       
 - hosts: ec2hosts
@@ -155,5 +232,66 @@
 
 
      
+    # this whole section is a funny mixture of copy-files and shell commands to create links etc.  it would make much more sense just to clone the whole /etc/nginx and /var/www from git
+
+    # create vhost directories
+    - file:
+        path: /var/www/dev.isentia.andrewswebsite.net/html
+        state: directory
+        owner: root
+        group: root
+        mode: 0755      
+      become: yes
+
+    - file:
+        path: /var/www/staging.isentia.andrewswebsite.net/html
+        state: directory
+        owner: root
+        group: root
+        mode: 0755      
+      become: yes
+
+     
+    - name: copy dev nginx files and symlink
+      copy:
+        src: web-server/dev.isentia.andrewswebsite.net
+        dest: /etc/nginx/sites-available/
+        owner: root
+        group: root
+        mode: 755
+      become: yes
+     
+    - name: copy dev nginx files and symlink
+    # TODO: the permissions are really wrong.
+      copy:
+        src: web-server/staging.isentia.andrewswebsite.net
+        dest: /etc/nginx/sites-available/
+        owner: root
+        group: root
+        mode: 755
+      become: yes
+
+    - file:
+        src: /etc/nginx/sites-available/staging.isentia.andrewswebsite.net
+        dest: /etc/nginx/sites-enabled/staging.isentia.andrewswebsite.net
+        owner: root
+        group: root
+        state: link
+      become: yes
+
+    - file:
+        src: /etc/nginx/sites-available/dev.isentia.andrewswebsite.net
+        dest: /etc/nginx/sites-enabled/dev.isentia.andrewswebsite.net
+        owner: root
+        group: root
+        state: link
+      become: yes
+   
+    - name: Restart nginx now that everything is set up
+      service: 
+        name: nginx 
+        state: restarted
+      become: yes
+
 # tear down : 
 # remove instance, remove keypair, 
