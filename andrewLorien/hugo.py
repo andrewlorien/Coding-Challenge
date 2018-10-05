@@ -8,10 +8,7 @@ import argparse
 import subprocess
 import os
 
-hugoSitePath = "/home/ubuntu/hugo_IsentiaChallenge/"
-hugoSitePath = "/home/radagast/miscWorks/IsentiaSep2018/Coding-Challenge/andrewLorien/IsentiaChallenge/"
-# hugoSitePath = os.path.join(os.path.dirname(__file__),"IsentiaChallenge/")
-
+hugoSitePath = os.path.join(os.path.dirname(os.path.abspath(__file__)),"IsentiaChallenge/")
 
 parser = argparse.ArgumentParser(prog='hugo.py')
 parser.add_argument('environment', choices=['dev', 'staging'], help='dev or staging')
@@ -21,14 +18,16 @@ args = parser.parse_args()
 ### DEV
 def update_dev():
 
+    print("adding new fortune to dev")
     # delete compiled sites
-    rmtree(hugoSitePath + "public/", True)
+    rmtree(hugoSitePath + "public/*", True)
     rmtree(hugoSitePath + "dev/", True)
     rmtree(hugoSitePath + "staging/", True)
 
     # edit content/fortune.md
     ## bug : python's %z returns a string like "0000", but hugo's timestamp wants "00:00"
     pageTime = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S%z")
+    print("{}content/fortune{}.md".format(hugoSitePath,pageTime))
     newPage = open("{}content/fortune{}.md".format(hugoSitePath,pageTime), "w")
     ## add header (date etc)
     # date: 2018-10-03T13:44:41+10:00
@@ -48,6 +47,7 @@ def update_dev():
 def update_footer(environment):
     # update version and footer (major.minor.dev)
     ## NOTE : footer.html MUST contain a line '<div class="version">' followed by a line like \d+.\d+.\d+
+    print("updating footer version")
     with open(hugoSitePath + "layouts/partials/footer.html", "r+") as footerFile:
         for line in footerFile:
             if '<div class="version">' in line:
@@ -76,8 +76,10 @@ def update_footer(environment):
  
 
 def build(environment,newVersion):
+    print("running hugo")
     # build
-    subprocess.run("hugo")
+    subprocess.run("hugo",cwd=hugoSitePath)
+    print("pushing to git")
     # copy to dev/staging
     copytree("{}public".format(hugoSitePath), "{}{}".format(hugoSitePath,environment))
     # add to git repo for deployment to remote server
