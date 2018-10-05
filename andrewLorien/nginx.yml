@@ -1,0 +1,43 @@
+# This playbook requires the ec2.py script, 
+#    and an AWS profile and EC2 key on the local machine 
+# Run it like this (from the folder containing the "playbook/" folder)
+# AWS_PROFILE=radagast ansible-playbook -i playbook/ec2.py playbook/nginx.yml --key-file ~/.aws/dev_staging.pem
+
+
+- hosts: ec2
+  name: configuration play
+  user: ubuntu
+  gather_facts: true
+  vars:
+    ansible_ssh_extra_args: "-o StrictHostKeyChecking=no"
+
+  tasks:
+
+    - name: check whether dev files have been created
+      stat:
+        path: IsentiaChallenge/dev/
+      register: dev_result
+
+    - name: copy dev files if they exist
+      copy:
+        src: IsentiaChallenge/dev/
+        dest: /var/www/dev.isentia.andrewswebsite.net/html
+        owner: root
+        group: root
+      become: yes
+      when: dev_result.stat.exists == True
+
+
+    - name: check whether staging files have been created
+      stat:
+        path: IsentiaChallenge/staging/
+      register: staging_result
+
+    - name: copy staging files
+      copy:
+        src: IsentiaChallenge/staging/
+        dest: /var/www/staging.isentia.andrewswebsite.net/html
+        owner: root
+        group: root
+      become: yes
+      when: staging_result.stat.exists == True
