@@ -35,6 +35,7 @@ on bootstrap:
 - schedule using crontab on the ansible server?
 - *TODO* git credentials are stored insecurely using the default git credential helper.  I wouldn't do that if I wasn't the only person with access
 - *TODO* copy ansible and python logs to S3
+- cron doesn't have the user's full PATH, so using ansible i symlinked hugo and fortune to /usr/bin.  Using the full paths in the python script would have been easier, but less portable
 
 ### hugo
 - create repo with base site manually
