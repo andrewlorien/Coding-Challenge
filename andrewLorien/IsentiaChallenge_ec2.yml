@@ -4,7 +4,7 @@
 # ansible-playbook IsentiaChallenge_ec2-.yml --key-file "~/.aws/dev_staging.pem"
 
 # On my local machine I'm using python 3.5 with boto 2.49.0 / botocore 1.4.70.  But boto keeps failing with 
-#    fatal: [localhost]: FAILED! => {"changed": false, "failed": true, "invocation": {"module_name": "ec2_key"}, "module_stderr": "  File \"/home/radagast/.ansible/tmp/ansible-tmp-1538353060.27-179003914891970/ec2_key\", line 153\n    except Exception, e:\n                    ^\nSyntaxError: invalid syntax\n", "module_stdout": "", "msg": "MODULE FAILURE", "parsed": false}
+#    fatal: [localhost]: FAILED! => {"changed": false, "failed": true, "invocation": {"module_name": "ec2_key"}, "module_stderr": "  File \"~/.ansible/tmp/ansible-tmp-1538353060.27-179003914891970/ec2_key\", line 153\n    except Exception, e:\n                    ^\nSyntaxError: invalid syntax\n", "module_stdout": "", "msg": "MODULE FAILURE", "parsed": false}
 # so, on a fresh ubuntu AWS instance, 
 # aws ec2 run-instances --image-id ami-0789a5fb42dcccc10 --count 1 --instance-type t3.micro --key-name dev_staging --associate-public-ip-address --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=ansible_ubuntu}]' --region=ap-southeast-2
 # I tried
@@ -12,7 +12,7 @@
 # locales was interactive... then
 # sudo apt-get install python-pip && pip install boto3 && pip install --upgrade pip && pip3 install --user boto boto3
 # then set up AWS 
-# sudo apt install awscli && aws configure # then rename the profile in ~/.aws/credentials from default to radagast
+# sudo apt install awscli && aws configure
 
 # to set up Hugo
 # curl -L https://github.com/gohugoio/hugo/releases/download/v0.49/hugo_0.49_Linux-64bit.deb -o hugo_0.49_Linux-64bit.deb
@@ -34,7 +34,7 @@
 
     # AWS variables
     # (It would be better to get most of these by describing the account)
-    local_aws_profile: radagast
+    local_aws_profile: default
     vpc_id: vpc-35a0f552
     ami_id: ami-0789a5fb42dcccc10   # ubuntu 16.04 LTS hvm:ebs-ssd  (t3 requires ebs root device)
     security_group_name: dev_staging_sg
@@ -52,11 +52,26 @@
       become: yes
 
 
+    # and symlink it to somewhere that it can be found from cron
+    - file:
+        src: /usr/local/bin/hugo
+        dest: /usr/bin/hugo
+        state: link
+      become: yes
+
     - name: Install fortune
       apt: 
         name: fortune
       state: present
       become: yes
+
+    # and symlink it to somewhere that it can be found from cron
+    - file:
+        src: /usr/games/fortune
+        dest: /usr/bin/fortune
+        state: link
+      become: yes
+
        
     - name: create a Key Pair 
       ec2_key:
@@ -78,7 +93,7 @@
         description: SG for Ansible and Hugin
         vpc_id: "{{ vpc_id }}"
         rules:
-	# SECURITY: we should have separate sg for elb and ec2, with elb allowing port 80 only and ec2 only available within the VPC
+        # SECURITY: we should have separate sg for elb and ec2, with elb allowing port 80 only and ec2 only available within the VPC
         - proto: tcp
           ports: 80
           cidr_ip: 0.0.0.0/0
@@ -168,7 +183,7 @@
          image: "{{ ami_id }}"
          wait: true
          count: 1
-	 # SECURITY: public IP only for debugging
+         # SECURITY: public IP only for debugging
          assign_public_ip: yes
          instance_tags:
             Name: dev_staging         
@@ -215,6 +230,29 @@
         target_id: "{{ item.id }}"
         state: present
       with_items: "{{ ec2.instances }}"
+
+# set up cron jobs (these might fail for the first couple of minutes until the host is ready)
+    - name: push files to web server
+      cron:
+        name: "push to web server"
+        minute: "1,6,11,16,21,26,31,36,41,46,51,56"
+        hour: "*"
+        job: "sleep 30 && AWS_PROFILE=default ansible-playbook -i ec2.py {{ playbook_dir }}/nginx.yml --key-file ~/.aws/dev_staging.pem  >> /var/log/IsentiaChallenge.log 2>&1"
+
+    - name: add a new fortune
+      cron:
+        name: "add a new fortune"
+        minute: "03,13,23,43,53"
+        hour: "*"
+        job: "python3 {{ playbook_dir }}/hugo.py dev  >> /var/log/IsentiaChallenge.log 2>&1"
+
+    - name: version to staging
+      cron:
+        name: "version to staging"
+        minute: "00"
+        hour: "*"
+        job: "python3 {{ playbook_dir }}/hugo.py staging  >> /var/log/IsentiaChallenge.log 2>&1"
+
       
 - hosts: ec2hosts
   name: configuration play
@@ -244,7 +282,6 @@
         state: directory
         owner: root
         group: root
-        mode: 0755      
       become: yes
 
     - file:
@@ -252,27 +289,26 @@
         state: directory
         owner: root
         group: root
-        mode: 0755      
       become: yes
 
      
-    - name: copy dev nginx files and symlink
+    - name: copy dev nginx config and symlink
       copy:
         src: web-server/dev.isentia.andrewswebsite.net
         dest: /etc/nginx/sites-available/
         owner: root
         group: root
-        mode: 755
+        mode: u=rw,g=r,o=r
       become: yes
      
-    - name: copy dev nginx files and symlink
+    - name: copy staging nginx config and symlink
     # TODO: the permissions are really wrong.
       copy:
         src: web-server/staging.isentia.andrewswebsite.net
         dest: /etc/nginx/sites-available/
         owner: root
         group: root
-        mode: 755
+        mode: u=rw,g=r,o=r
       become: yes
 
     - file:
@@ -296,6 +332,8 @@
         name: nginx 
         state: restarted
       become: yes
+
+
 
 # tear down : 
 # remove instance, remove keypair, 

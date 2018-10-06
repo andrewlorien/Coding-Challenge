@@ -96,6 +96,8 @@ def increment(v):
     return str((int(v)+1))
 
 #############  BEGIN ##################
+print("----- hugo.py at {} -----".format(datetime))
+
 # Clean up
 rmtree(hugoSitePath + "public/*", True)
 rmtree(hugoSitePath + "dev/", True)
