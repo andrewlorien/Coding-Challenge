@@ -237,7 +237,7 @@
         name: "push to web server"
         minute: "1,6,11,16,21,26,31,36,41,46,51,56"
         hour: "*"
-        job: "sleep 30 && AWS_PROFILE=default ansible-playbook -i ec2.py {{ playbook_dir }}/nginx.yml --key-file ~/.aws/dev_staging.pem  >> /var/log/IsentiaChallenge.log 2>&1"
+        job: "sleep 30 &&  AWS_REGION=ap-southeast-2 AWS_PROFILE=default ansible-playbook -i ec2.py {{ playbook_dir }}/nginx.yml --key-file ~/.aws/dev_staging.pem  >> /var/log/IsentiaChallenge.log 2>&1"
 
     - name: add a new fortune
       cron:
