@@ -1,7 +1,7 @@
 # This playbook requires the ec2.py script, 
 #    and an AWS profile and EC2 key on the local machine 
 # Run it like this 
-# AWS_PROFILE=radagast ansible-playbook -i ec2.py nginx.yml --key-file ~/.aws/dev_staging.pem
+# AWS_PROFILE=default ansible-playbook -i ec2.py nginx.yml --key-file ~/.aws/dev_staging.pem
 
 
 - hosts: ec2
