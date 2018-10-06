@@ -3,7 +3,8 @@
 There are three important files, all to be run from this folder
 
 ## IsentiaChallenge_ec2.yml
-Sets up the environment, including all AWS components and the web server
+Sets up the environment, including all AWS components and the web server.
+Requires an ansible host, in an AWS VPC, with python+boto+ansible+awscli and default AWS credentials which allow creation of EC2 and VPC components
 Run it from an ansible host within a VPC like this:
 `ansible-playbook IsentiaChallenge_ec2.yml --key-file "~/.aws/dev_staging.pem"`
 
@@ -17,11 +18,11 @@ Run it using python3 like this:
 ## nginx.yml 
 Copies the dev or staging folder to the matching folder on the web server.
 Run it like this
-`AWS_PROFILE=radagast ansible-playbook -i ec2.py nginx.yml --key-file ~/.aws/dev_staging.pem`
+`AWS_PROFILE=default ansible-playbook -i ec2.py nginx.yml --key-file ~/.aws/dev_staging.pem`
 
 To fulfil the challenge, the IsentiaChallenge_ec2.yml creates a crontab on the ansible host which:
 every five minutes runs
-`AWS_PROFILE=radagast ansible-playbook -i ec2.py nginx.yml --key-file ~/.aws/dev_staging.pem`
+`AWS_PROFILE=default ansible-playbook -i ec2.py nginx.yml --key-file ~/.aws/dev_staging.pem`
 every ten minutes runs
 `python3 hugo.py dev`
 every hour runs
